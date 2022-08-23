@@ -34,7 +34,8 @@ func GetConfig(dataId string, groupName string) {
 	if err != nil {
 		log.Println("配置文件获取失败", err)
 	}
-	println(content)
+	ConvertConfig(content)
+	println(GateWayConfig)
 }
 
 func ListenConfig(dataId string, groupName string) {

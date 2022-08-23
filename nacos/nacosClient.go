@@ -51,6 +51,7 @@ func InitNacosServer() {
 		},
 	)
 	RegisterInstance(getIp(), webPort, serviceName, groupName)
+	GetConfig(configDataId, groupName)
 	ListenConfig(configDataId, groupName)
 }
 

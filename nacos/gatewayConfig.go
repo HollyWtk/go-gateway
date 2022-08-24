@@ -29,9 +29,11 @@ type Filter struct {
 	Args map[string]any `json:"args"`
 }
 
-func ConvertConfig(content string) {
+func ConvertConfig(content string) error {
 	err := json.Unmarshal([]byte(content), GateWayConfig)
 	if err != nil {
 		log.Println("gateway配置数据转换失败", err)
+		return err
 	}
+	return nil
 }

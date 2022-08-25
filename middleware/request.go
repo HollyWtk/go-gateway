@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"encoding/json"
+	"errors"
 	"gateway/config"
 	"gateway/nacos"
 	"gateway/utils"
@@ -9,26 +9,35 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 )
 
 func Request() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		groupName := config.File.MustValue("nacos_server", "groupName", "DEFAULT_GROUP")
-		//convertNewUrl(c)
-		service := nacos.GetService("lspos-finance", groupName, "")
-		host := utils.WeightRandom(service.Hosts)
-		marshal, _ := json.Marshal(host)
-		log.Println(string(marshal))
+		convertNewUrl(c)
 	}
 }
 
 func convertNewUrl(c *gin.Context) {
-	err := convertUrl(c.Request.URL)
+	var scheme string
+	if c.Request.TLS == nil {
+		scheme = "http"
+	} else {
+		scheme = "https"
+	}
+	err := convertUrl(c.Request.URL, scheme)
 	if err != nil {
 		log.Println("转换转发请求地址有误", err)
+		c.JSON(http.StatusNotFound, gin.H{
+			"code":    404,
+			"message": "service not found",
+		})
+		return
 	}
 	println(c.Request.URL.String())
 	req, err := http.NewRequestWithContext(c, c.Request.Method, c.Request.URL.String(), c.Request.Body)
+	req.Header = c.Request.Header
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		c.Abort()
@@ -47,19 +56,26 @@ func convertNewUrl(c *gin.Context) {
 /**
 根据nacos配置 获取实际访问ip:host
 */
-func convertUrl(rawUrl *url.URL) error {
-	config, _ := json.Marshal(nacos.GateWayConfig)
-	println(string(config))
-	proxyUrl := "http://localhost:8503/lspos-finance/test"
-	u, err := url.Parse(proxyUrl)
-	if err != nil {
-		return err
+func convertUrl(rawUrl *url.URL, scheme string) error {
+	groupName := config.NacosServerConfig.GroupName
+	println(rawUrl.Path)
+	realPath := rawUrl.Path[1:]
+	var serviceName string
+	index := strings.Index(realPath, "/")
+	if index > 0 {
+		serviceName = realPath[:index]
+	} else {
+		serviceName = realPath
 	}
-
-	rawUrl.Scheme = u.Scheme
-	rawUrl.Host = u.Host
-	rawUrl.Path = "/lspos-finance/test"
-	ruq := rawUrl.Query()
-	rawUrl.RawQuery = ruq.Encode()
+	service := nacos.GetService(serviceName, groupName, "")
+	if len(service.Hosts) == 0 {
+		return errors.New("service not found")
+	} else {
+		host := utils.WeightRandom(service.Hosts)
+		rawUrl.Scheme = scheme
+		rawUrl.Host = host.Ip + ":" + strconv.FormatUint(host.Port, 10)
+		ruq := rawUrl.Query()
+		rawUrl.RawQuery = ruq.Encode()
+	}
 	return nil
 }

@@ -35,7 +35,6 @@ func convertNewUrl(c *gin.Context) {
 		})
 		return
 	}
-	println(c.Request.URL.String())
 	req, err := http.NewRequestWithContext(c, c.Request.Method, c.Request.URL.String(), c.Request.Body)
 	req.Header = c.Request.Header
 	if err != nil {
@@ -44,6 +43,7 @@ func convertNewUrl(c *gin.Context) {
 		return
 	}
 	resp, err := http.DefaultClient.Do(req)
+	log.Printf("url:%s \n", c.Request.URL.String())
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())
 		c.Abort()
@@ -58,7 +58,6 @@ func convertNewUrl(c *gin.Context) {
 */
 func convertUrl(rawUrl *url.URL, scheme string) error {
 	groupName := config.NacosServerConfig.GroupName
-	println(rawUrl.Path)
 	realPath := rawUrl.Path[1:]
 	var serviceName string
 	index := strings.Index(realPath, "/")

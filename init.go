@@ -4,32 +4,23 @@ import (
 	"gateway/config"
 	"gateway/middleware"
 	"gateway/nacos"
+	"gateway/net"
+	"gateway/net/predicate"
 	"github.com/gin-gonic/gin"
-	"log"
-	"net/http"
-	"time"
+	"strconv"
 )
+
+var DefaultPredicate = net.NewPredicate()
 
 func Init(router *gin.Engine) {
 	nacos.InitNacosServer()
-	initRouter(router)
-	initServer(router)
+	server := net.NewServer(config.WebServerConfig.Host + ":" + strconv.FormatInt(config.WebServerConfig.Port, 10))
+	initPredicate()
+	server.Predicate(DefaultPredicate)
+	router.Use(middleware.DoPredicate(DefaultPredicate), middleware.Request(), middleware.Cors())
+	server.Start(router)
 }
 
-func initRouter(router *gin.Engine) {
-	router.Use(middleware.Request(), middleware.Cors())
-}
-
-func initServer(router *gin.Engine) {
-	host := config.File.MustValue("web_server", "host", "127.0.0.1")
-	port := config.File.MustValue("web_server", "port", "8088")
-	s := &http.Server{
-		Addr:           host + ":" + port,
-		Handler:        router,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-	err := s.ListenAndServe()
-	log.Println(err)
+func initPredicate() {
+	predicate.PathPredicate.Predicate(DefaultPredicate)
 }
